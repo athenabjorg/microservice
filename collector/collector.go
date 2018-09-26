@@ -8,72 +8,34 @@ import (
 	"github.com/streadway/amqp"
 )
 
-type Consumer struct {
-	conn    *amqp.Connection
-	channel *amqp.Channel
-}
-
-func failOnError(err error, msg string) {
-	if err != nil {
-		log.Fatalf("%s: %s", msg, err)
-	}
-}
-
 func main() {
 
-	c := &Consumer{
-		conn:    nil,
-		channel: nil,
-	}
-	var err error
+	c := CreateConsumer()
+	defer CloseConsumer(c)
 
-	c.conn, err = amqp.Dial("amqp://guest:guest@localhost:5672/")
-	failOnError(err, "Failed to connect to RabbitMQ")
-	defer c.conn.Close()
-
-	c.channel, err = c.conn.Channel()
-	failOnError(err, "Failed to open a channel")
-	defer c.channel.Close()
-
-	msgs, err := c.channel.Consume(
-		"hello", // queue
-		"",      // consumer
-		false,   // auto-ack
-		false,   // exclusive
-		false,   // no-local
-		false,   // no-wait
-		nil,     // args
-	)
-	failOnError(err, "Failed to register a consumer")
+	msgs := GetConsumerMessages(c)
 
 	forever := make(chan bool)
-	go processMessages(msgs)``
+	go processMessages(msgs)
+	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
+
 	<-forever
 }
 
 func processMessages(msgs <-chan amqp.Delivery) {
+	for d := range msgs {
+		log.Printf("Received a message: %s", d.Body)
 
-	go func() {
-		for d := range msgs {
-			log.Printf("Received a message: %s", d.Body)
-
-			// 	//if kill message
-			// 	//processKillMessage()
-			// 	//else
-			// 	//saveMessageToRedis()
-			time.Sleep(5 * time.Second)
-			d.Ack(true)
-		}
-	}()
-
-	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
-
-	// for {
-
-	// }
+		// 	//if kill message
+		// 	//processKillMessage()
+		// 	//else
+		// 	//saveMessageToRedis()
+		time.Sleep(5 * time.Second)
+		d.Ack(false)
+	}
 }
 
-func processKillMessage() error {
+func processKillMessage() {
 
 	// conn, err := grpc.Dial("localhost:50051", grpc.WithInsecure())
 
@@ -86,11 +48,11 @@ func processKillMessage() error {
 	// c := calculatorpb.NewCalculatorServiceClient(conn)
 
 	// forwardKillMessageToAggregator(c)
-	return forwardKillMessageToAggregator()
+	forwardKillMessageToAggregator()
 }
 
-// func forwardKillMessageToAggregator(c calculatorpb.CalculatorServiceClient) bool {
-func forwardKillMessageToAggregator() error {
+// func forwardKillMessageToAggregator(c calculatorpb.CalculatorServiceClient) {
+func forwardKillMessageToAggregator() {
 	fmt.Println("Forwarding a kill message")
 
 	// req := &calculatorpb.SumRequest{
@@ -107,7 +69,6 @@ func forwardKillMessageToAggregator() error {
 	// }
 
 	// log.Printf("Response from Sum: %v", res.Result)
-	return nil
 }
 
 func saveMessageToRedis() {
