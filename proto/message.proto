@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package microservice.message;
+
+option go_package = "messagepb";
+
+message Message{
+    string receiver = 1;
+    string sender = 2;
+    int64 value = 3;
+    string type = 4;
+}
