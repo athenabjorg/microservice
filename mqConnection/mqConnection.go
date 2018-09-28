@@ -1,4 +1,4 @@
-package main
+package mqConnection
 
 import (
 	"log"
@@ -6,7 +6,7 @@ import (
 	"github.com/streadway/amqp"
 )
 
-type Consumer struct {
+type Connection struct {
 	conn    *amqp.Connection
 	channel *amqp.Channel
 }
@@ -17,8 +17,8 @@ func failOnError(err error, msg string) {
 	}
 }
 
-func CreateConsumer() *Consumer {
-	c := &Consumer{
+func OpenConnection() *Connection {
+	c := &Connection{
 		conn:    nil,
 		channel: nil,
 	}
@@ -33,12 +33,12 @@ func CreateConsumer() *Consumer {
 	return c
 }
 
-func CloseConsumer(c *Consumer) {
+func CloseConnection(c *Connection) {
 	c.conn.Close()
 	c.channel.Close()
 }
 
-func GetConsumerMessages(c *Consumer) <-chan amqp.Delivery {
+func GetMessages(c *Connection) <-chan amqp.Delivery {
 	msgs, err := c.channel.Consume(
 		"hello", // queue
 		"",      // consumer
@@ -51,4 +51,18 @@ func GetConsumerMessages(c *Consumer) <-chan amqp.Delivery {
 	failOnError(err, "Failed to register a consumer")
 
 	return msgs
+}
+
+func SendMessage(c *Connection, msg []byte) {
+	err := c.channel.Publish(
+		"",      // exchange
+		"hello", // routing key
+		false,   // mandatory
+		false,   // immediate
+		amqp.Publishing{
+			ContentType: "text/plain",
+			Body:        msg,
+		})
+	failOnError(err, "Failed to publish a message")
+	log.Printf(" [x] Sent %s", msg)
 }

@@ -8,5 +8,5 @@ message Message{
     string receiver = 1;
     string sender = 2;
     int64 value = 3;
-    string type = 4;
+    string operation = 4;
 }

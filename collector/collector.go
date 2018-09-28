@@ -5,15 +5,19 @@ import (
 	"log"
 	"time"
 
+	"github.com/athenabjorg/microservice/mqConnection"
+	"github.com/athenabjorg/microservice/proto"
+
+	"github.com/golang/protobuf/proto"
 	"github.com/streadway/amqp"
 )
 
 func main() {
 
-	c := CreateConsumer()
-	defer CloseConsumer(c)
+	c := mqConnection.OpenConnection()
+	defer mqConnection.CloseConnection(c)
 
-	msgs := GetConsumerMessages(c)
+	msgs := mqConnection.GetMessages(c)
 
 	forever := make(chan bool)
 	go processMessages(msgs)
@@ -24,14 +28,23 @@ func main() {
 
 func processMessages(msgs <-chan amqp.Delivery) {
 	for d := range msgs {
-		log.Printf("Received a message: %s", d.Body)
+		m := &messagepb.Message{}
+
+		err := proto.Unmarshal(d.Body, m)
+
+		if err != nil {
+			d.Nack(false, true) // (multiple, requeue)
+			log.Fatalln("Failed to parse Message:", err)
+		}
+
+		log.Printf("Received a message: %s", m)
 
 		// 	//if kill message
 		// 	//processKillMessage()
 		// 	//else
 		// 	//saveMessageToRedis()
-		time.Sleep(5 * time.Second)
-		d.Ack(false)
+		time.Sleep(3 * time.Second)
+		d.Ack(false) // (multiple)
 	}
 }
 
