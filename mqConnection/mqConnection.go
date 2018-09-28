@@ -1,4 +1,4 @@
-package mqConnection
+package mqconnection
 
 import (
 	"log"

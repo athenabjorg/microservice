@@ -3,52 +3,60 @@ package main
 import (
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/athenabjorg/microservice/mqConnection"
 	"github.com/athenabjorg/microservice/proto"
+	"github.com/athenabjorg/microservice/redisConnection"
 
+	"github.com/garyburd/redigo/redis"
 	"github.com/golang/protobuf/proto"
 	"github.com/streadway/amqp"
 )
 
 func main() {
 
-	c := mqConnection.OpenConnection()
-	defer mqConnection.CloseConnection(c)
+	mqConn := mqconnection.OpenConnection()
+	defer mqconnection.CloseConnection(mqConn)
+	msgs := mqconnection.GetMessages(mqConn)
 
-	msgs := mqConnection.GetMessages(c)
+	redis := redisconnection.OpenConnection()
+	defer redisconnection.CloseConnection(redis)
 
 	forever := make(chan bool)
-	go processMessages(msgs)
-	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
+	for d := range msgs {
+		go processMessage(d, redis)
+	}
+	fmt.Println(" [*] Waiting for messages. To exit press CTRL+C")
 
 	<-forever
 }
 
-func processMessages(msgs <-chan amqp.Delivery) {
-	for d := range msgs {
-		m := &messagepb.Message{}
+func processMessage(d amqp.Delivery, redis redis.Conn) {
 
-		err := proto.Unmarshal(d.Body, m)
+	msg := &messagepb.Message{}
 
-		if err != nil {
-			d.Nack(false, true) // (multiple, requeue)
-			log.Fatalln("Failed to parse Message:", err)
-		}
+	err := proto.Unmarshal(d.Body, msg)
 
-		log.Printf("Received a message: %s", m)
-
-		// 	//if kill message
-		// 	//processKillMessage()
-		// 	//else
-		// 	//saveMessageToRedis()
-		time.Sleep(3 * time.Second)
-		d.Ack(false) // (multiple)
+	if err != nil {
+		d.Nack(false, true) // (multiple, requeue)
+		log.Fatalln("Failed to parse Message:", err)
 	}
+
+	fmt.Println("Received a message: ", msg)
+
+	if msg.GetOperation() == "done" {
+		// TODO return error and do nack if needed
+		processDoneMessage()
+	} else {
+		// TODO return error and do nack if needed
+		saveMessageToRedis(redis)
+	}
+
+	d.Ack(false) // (multiple)
+
 }
 
-func processKillMessage() {
+func processDoneMessage() {
 
 	// conn, err := grpc.Dial("localhost:50051", grpc.WithInsecure())
 
@@ -60,13 +68,13 @@ func processKillMessage() {
 
 	// c := calculatorpb.NewCalculatorServiceClient(conn)
 
-	// forwardKillMessageToAggregator(c)
-	forwardKillMessageToAggregator()
+	// forwardDoneMessageToAggregator(c)
+	forwardDoneMessageToAggregator()
 }
 
-// func forwardKillMessageToAggregator(c calculatorpb.CalculatorServiceClient) {
-func forwardKillMessageToAggregator() {
-	fmt.Println("Forwarding a kill message")
+// func forwardDoneMessageToAggregator(c calculatorpb.CalculatorServiceClient) {
+func forwardDoneMessageToAggregator() {
+	fmt.Println("Forwarding a done message")
 
 	// req := &calculatorpb.SumRequest{
 	// 	Values: &calculatorpb.Values{
@@ -84,6 +92,8 @@ func forwardKillMessageToAggregator() {
 	// log.Printf("Response from Sum: %v", res.Result)
 }
 
-func saveMessageToRedis() {
-	fmt.Println("Saving message to redis")
+func saveMessageToRedis(redis redis.Conn) {
+	//set
+	fmt.Println("Sending message to redis")
+	redis.Do("SET", "message1", "Hello World")
 }

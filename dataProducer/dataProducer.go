@@ -11,8 +11,8 @@ import (
 
 func main() {
 
-	c := mqConnection.OpenConnection()
-	defer mqConnection.CloseConnection(c)
+	c := mqconnection.OpenConnection()
+	defer mqconnection.CloseConnection(c)
 
 	msgs := []*messagepb.Message{
 		&messagepb.Message{
@@ -34,6 +34,6 @@ func main() {
 		if err != nil {
 			log.Fatalln("Failed to encode message:", err)
 		}
-		mqConnection.SendMessage(c, protoMsg)
+		mqconnection.SendMessage(c, protoMsg)
 	}
 }
